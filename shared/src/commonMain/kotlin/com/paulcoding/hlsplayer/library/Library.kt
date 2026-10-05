@@ -117,6 +117,20 @@ fun findMovie(library: Library, movieId: String?): Movie? = library.movies.first
 
 fun findEpisode(movie: Movie?, episodeId: String?): Episode? = movie?.episodes?.firstOrNull { it.id == episodeId }
 
+/** The addon a movie came from, for its card; [missing] when it has since been deleted. */
+data class SourceLabel(val name: String, val type: String, val missing: Boolean)
+
+/** Null for a hand-added movie. Refresh and Play go through the addon, so a missing one is worth showing. */
+fun describeSource(movie: Movie, plugins: List<com.paulcoding.hlsplayer.model.Plugin>): SourceLabel? {
+    val source = movie.source ?: return null
+    val plugin = plugins.firstOrNull { it.id == source.pluginId }
+    return SourceLabel(
+        name = plugin?.name.orEmpty(),
+        type = source.type.orEmpty().replaceFirstChar { it.uppercase() },
+        missing = plugin == null,
+    )
+}
+
 /** Where opening a movie should start: where it was left, else the beginning. */
 fun resumeEpisodeId(movie: Movie?): String? =
     findEpisode(movie, movie?.lastEpisodeId)?.id ?: movie?.episodes?.firstOrNull()?.id

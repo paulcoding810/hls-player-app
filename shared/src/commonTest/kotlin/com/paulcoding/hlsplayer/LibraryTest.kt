@@ -112,6 +112,15 @@ class LibraryTest {
         assertEquals(0, config.skipLeading, "zero is a choice, not a blank")
     }
 
+    @Test fun describesTheAddonAMovieCameFrom() {
+        val plugins = listOf(com.paulcoding.hlsplayer.model.Plugin(id = "p1", name = "Addon"))
+        val movie = Movie(id = "m", source = SourceRef("p1", "tt1", "series"))
+        assertEquals(com.paulcoding.hlsplayer.library.SourceLabel("Addon", "Series", false), com.paulcoding.hlsplayer.library.describeSource(movie, plugins))
+        // Refresh and Play go through it, so the card warns before they fail.
+        assertEquals(true, com.paulcoding.hlsplayer.library.describeSource(movie.copy(source = SourceRef("gone", "tt1")), plugins)?.missing)
+        assertEquals(null, com.paulcoding.hlsplayer.library.describeSource(Movie(id = "h"), plugins), "a hand-added movie has none")
+    }
+
     @Test fun episodeKeyIsWhatTheModelUses() {
         assertEquals(episodeKey(null, stream), Episode("e", "E", stream = stream).key)
     }

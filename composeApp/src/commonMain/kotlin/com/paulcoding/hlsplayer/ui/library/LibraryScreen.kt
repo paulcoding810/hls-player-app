@@ -41,6 +41,8 @@ import coil3.compose.AsyncImage
 import com.paulcoding.hlsplayer.LocalDeps
 import com.paulcoding.hlsplayer.LocalNavigator
 import com.paulcoding.hlsplayer.Screen
+import com.paulcoding.hlsplayer.library.SourceLabel
+import com.paulcoding.hlsplayer.library.describeSource
 import com.paulcoding.hlsplayer.library.findEpisode
 import com.paulcoding.hlsplayer.library.findMovie
 import com.paulcoding.hlsplayer.library.key
@@ -145,6 +147,7 @@ fun LibraryScreen() {
                 items(shown, key = { it.id }) { movie ->
                     MovieCard(
                         movie,
+                        source = describeSource(movie, plugins),
                         refreshing = refreshing == movie.id,
                         onPlay = { play(movie) },
                         onWatched = { scope.launch { deps.data.markWatched(movie.id, movie.watchedAt == null) } },
@@ -225,6 +228,7 @@ private fun ProgressLine(fraction: Double, modifier: Modifier = Modifier) {
 @Composable
 private fun MovieCard(
     movie: Movie,
+    source: SourceLabel?,
     refreshing: Boolean,
     onPlay: () -> Unit,
     onWatched: () -> Unit,
@@ -252,6 +256,14 @@ private fun MovieCard(
         }
         Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
             Text(movie.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 14.sp)
+            when {
+                source == null -> {}
+                source.missing -> Text("Source removed", color = Palette.warn, fontSize = 12.sp, maxLines = 1)
+                else -> Text(
+                    listOf(source.name, source.type).filter { it.isNotEmpty() }.joinToString(" · "),
+                    color = Palette.inkMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text("${movie.episodes.size} episode(s)", fontSize = 12.sp, color = Palette.inkFaint)
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
