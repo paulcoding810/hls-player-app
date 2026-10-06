@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -284,7 +283,7 @@ fun SourcesScreen() {
 
     if (picking) {
         Sheet("Browse a catalog", { picking = false }) {
-            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 catalogs.forEach { entry ->
                     Text(
                         "${entry.plugin.name} · ${entry.catalog.name}",
@@ -365,7 +364,7 @@ private fun DetailsSheet(
         episodes?.size?.takeIf { it > 1 }?.let { "$it episodes" },
     )
     Sheet(title, onDismiss) {
-        Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Poster(details?.poster?.ifEmpty { null } ?: result.poster, Modifier.size(width = 96.dp, height = 144.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

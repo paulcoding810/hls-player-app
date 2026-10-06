@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -54,7 +53,7 @@ private val shape = RoundedCornerShape(Radius)
 @Composable
 fun StreamPicker(streams: List<FoundStream>, current: String?, onChoose: (FoundStream) -> Unit, onDismiss: () -> Unit) {
     Sheet("Stream source", onDismiss) {
-        Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             streams.forEach { stream ->
                 val active = stream.url == current
                 Column(
@@ -88,7 +87,7 @@ fun SubtitleSettings(
     onDismiss: () -> Unit,
 ) {
     Sheet("Subtitles", onDismiss) {
-        Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (tracks.isEmpty()) Help("This stream has no subtitles.")
             else {
                 SectionLabel("Track")

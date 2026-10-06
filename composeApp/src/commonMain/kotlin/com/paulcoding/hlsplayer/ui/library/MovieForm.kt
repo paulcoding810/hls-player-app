@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -122,7 +121,7 @@ fun MovieForm(movie: Movie?, defaults: Settings, onSave: (MovieDraft, keepEpisod
     }
 
     Sheet(if (movie == null) "Add movie" else "Edit movie", onDismiss) {
-        Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (!fromSource) Choices(listOf("form" to "Form", "json" to "JSON"), if (json == null) "form" else "json", ::toggleJson)
 
             if (json != null) {

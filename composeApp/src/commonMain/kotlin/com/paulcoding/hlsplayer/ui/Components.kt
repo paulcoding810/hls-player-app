@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -352,9 +353,13 @@ fun Confirm(title: String, message: String, confirm: String, dismiss: String, on
     }
 }
 
-/** A panel dialog sized for forms, scrolling inside. */
+/**
+ * A panel dialog sized for forms. Its height is the screen's: a body given
+ * `Modifier.weight(1f, fill = false)` scrolls in whatever is left, so the action
+ * row after it stays on screen — a fixed height ran off a 720p TV.
+ */
 @Composable
-fun Sheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+fun Sheet(title: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
             Modifier

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -105,7 +104,7 @@ fun AddonForm(plugin: Plugin?, onSave: (Plugin) -> Unit, onDismiss: () -> Unit) 
     }
 
     Sheet(if (plugin == null) "Add Stremio addon" else "Edit Stremio addon", onDismiss) {
-        Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Choices(listOf("form" to "Form", "json" to "JSON"), if (json == null) "form" else "json", { mode ->
                 error = ""
                 if (mode == "json" && json == null) json = if (plugin == null && draft.url.isBlank()) "" else pluginToJson(draft)
