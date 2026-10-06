@@ -33,8 +33,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -51,10 +63,23 @@ import kotlinx.coroutines.delay
 
 private val shape = RoundedCornerShape(Radius)
 
+/**
+ * The focus ring: a remote moves by focus, and the default highlight barely
+ * shows on this palette. Red, like the extension's focus ring. Goes before the
+ * `clickable` it describes — it reports the focus of what follows it.
+ */
+fun Modifier.focusRing(ringShape: Shape = shape, color: Color = Palette.primary): Modifier = composed {
+    var focused by remember { mutableStateOf(false) }
+    this
+        .onFocusChanged { focused = it.hasFocus }
+        .border(2.dp, if (focused) color else Color.Transparent, ringShape)
+}
+
 /** The solid red button — at most one per view, as the extension's `buttonClass`. */
 @Composable
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ImageVector? = null) =
-    ButtonBase(text, onClick, modifier, enabled, icon, background = Palette.primary, border = Color.Transparent, content = Color.White)
+    // A red ring vanishes on the red fill, so the primary button's is ink.
+    ButtonBase(text, onClick, modifier, enabled, icon, background = Palette.primary, border = Color.Transparent, content = Color.White, ring = Palette.ink)
 
 /** Bordered and transparent: the default for everything else. */
 @Composable
@@ -76,6 +101,7 @@ private fun ButtonBase(
     background: Color,
     border: Color,
     content: Color,
+    ring: Color = Palette.primary,
 ) {
     Row(
         modifier
@@ -84,6 +110,7 @@ private fun ButtonBase(
             .clip(shape)
             .background(background)
             .border(1.dp, border, shape)
+            .focusRing(color = ring)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -102,6 +129,7 @@ fun IconAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier: 
             .size(size.dp)
             .alpha(if (enabled) 1f else 0.4f)
             .clip(shape)
+            .focusRing()
             .clickable(enabled = enabled, onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
@@ -112,7 +140,7 @@ fun IconAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier: 
 
 @Composable
 fun LinkButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Text(text, color = Palette.inkMuted, fontSize = 13.sp, modifier = modifier.clip(shape).clickable(onClick = onClick).padding(6.dp))
+    Text(text, color = Palette.inkMuted, fontSize = 13.sp, modifier = modifier.clip(shape).focusRing().clickable(onClick = onClick).padding(6.dp))
 }
 
 /** A field with a real label above it and help under it, as the extension's forms are built. */
@@ -131,6 +159,13 @@ fun Field(
     onSubmit: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
+    // On a TV a field takes focus quietly and types only after center is pressed: focusing
+    // one opens the keyboard, which would trap every press on the way down a form.
+    val tv = com.paulcoding.hlsplayer.LocalIsTv.current
+    var editing by remember { mutableStateOf(!tv) }
+    val softKeyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(editing, focused) { if (tv && editing && focused) softKeyboard?.show() }
     Column(modifier) {
         SectionLabel(label)
         Spacer(Modifier.size(4.dp))
@@ -141,9 +176,33 @@ fun Field(
             minLines = minLines,
             keyboardOptions = keyboard,
             keyboardActions = KeyboardActions(onAny = { onSubmit?.invoke() }),
+            readOnly = !editing,
             cursorBrush = SolidColor(Palette.primary),
             textStyle = TextStyle(color = Palette.ink, fontSize = if (mono) 12.sp else 14.sp, fontFamily = if (mono) FontFamily.Monospace else FontFamily.Default),
-            modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged {
+                    focused = it.isFocused
+                    if (tv && !it.isFocused) editing = false
+                }
+                .onPreviewKeyEvent { event ->
+                    if (!tv || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    // A text field keeps the arrows for its cursor even read-only, which strands a
+                    // remote in it; outside editing every arrow leaves, and up and down always
+                    // leave a single line.
+                    val direction = when (event.key) {
+                        Key.DirectionUp -> FocusDirection.Up.takeIf { !editing || singleLine }
+                        Key.DirectionDown -> FocusDirection.Down.takeIf { !editing || singleLine }
+                        Key.DirectionLeft -> FocusDirection.Left.takeIf { !editing }
+                        Key.DirectionRight -> FocusDirection.Right.takeIf { !editing }
+                        else -> null
+                    }
+                    when {
+                        direction != null -> { focusManager.moveFocus(direction); true }
+                        !editing && event.key in setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter) -> { editing = true; true }
+                        else -> false
+                    }
+                },
             decorationBox = { inner ->
                 Box(
                     Modifier
@@ -175,7 +234,7 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) =
 @Composable
 fun SwitchRow(text: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, help: String? = null) {
     Row(
-        modifier.fillMaxWidth().clip(shape).clickable { onChange(!checked) }.padding(vertical = 6.dp),
+        modifier.fillMaxWidth().clip(shape).focusRing().clickable { onChange(!checked) }.padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -184,7 +243,8 @@ fun SwitchRow(text: String, checked: Boolean, onChange: (Boolean) -> Unit, modif
         }
         Switch(
             checked = checked,
-            onCheckedChange = onChange,
+            // The row toggles it; a second focus stop on the switch would make a remote press twice.
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(
                 checkedTrackColor = Palette.primary,
                 checkedThumbColor = Color.White,
@@ -209,6 +269,7 @@ fun <T> Choices(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Un
                 modifier = Modifier
                     .clip(shape)
                     .border(1.dp, if (active) Palette.primary else Palette.line, shape)
+                    .focusRing()
                     .clickable { onSelect(value) }
                     .padding(horizontal = 10.dp, vertical = 6.dp),
             )
@@ -272,7 +333,11 @@ fun Banner(message: String, tone: Tone, modifier: Modifier = Modifier, onClick: 
  */
 @Composable
 fun Confirm(title: String, message: String, confirm: String, dismiss: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    // The affirmative button takes focus, as the extension's `autoFocus` does — on a remote,
+    // a first press must not land on the answer that throws something away.
+    val affirm = remember { FocusRequester() }
     Dialog(onDismissRequest = onDismiss) {
+        LaunchedEffect(Unit) { runCatching { affirm.requestFocus() } }
         Column(
             Modifier.clip(shape).background(Palette.panel).border(1.dp, Palette.line, shape).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -281,7 +346,7 @@ fun Confirm(title: String, message: String, confirm: String, dismiss: String, on
             Text(message, color = Palette.inkMuted, fontSize = 14.sp)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 GhostButton(dismiss, onDismiss)
-                PrimaryButton(confirm, onConfirm)
+                PrimaryButton(confirm, onConfirm, Modifier.focusRequester(affirm))
             }
         }
     }

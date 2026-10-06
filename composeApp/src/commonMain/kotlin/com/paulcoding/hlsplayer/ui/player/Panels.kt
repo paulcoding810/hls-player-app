@@ -44,6 +44,7 @@ import com.paulcoding.hlsplayer.ui.Radius
 import com.paulcoding.hlsplayer.ui.SectionLabel
 import com.paulcoding.hlsplayer.ui.Sheet
 import com.paulcoding.hlsplayer.ui.SwitchRow
+import com.paulcoding.hlsplayer.ui.focusRing
 import com.paulcoding.hlsplayer.util.formatTime
 import kotlin.math.roundToInt
 
@@ -58,7 +59,7 @@ fun StreamPicker(streams: List<FoundStream>, current: String?, onChoose: (FoundS
                 val active = stream.url == current
                 Column(
                     Modifier.fillMaxWidth().clip(shape).border(1.dp, if (active) Palette.primary else Palette.line, shape)
-                        .clickable { onChoose(stream); onDismiss() }.padding(horizontal = 12.dp, vertical = 8.dp),
+                        .focusRing().clickable { onChoose(stream); onDismiss() }.padding(horizontal = 12.dp, vertical = 8.dp),
                 ) {
                     Text(stream.name.ifEmpty { "Stream" }, color = if (active) Palette.primary else Palette.ink, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (stream.description.isNotEmpty()) Text(stream.description, color = Palette.inkFaint, fontSize = 12.sp)
@@ -160,7 +161,7 @@ fun EpisodesPanel(episodes: List<Episode>, currentId: String?, positions: Map<St
                 val stored = positions[episode.key]
                 Row(
                     Modifier.fillMaxWidth().background(if (active) Palette.primarySoft else Palette.panel.copy(alpha = 0f))
-                        .clickable { onSelect(episode.id) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                        .focusRing(RoundedCornerShape(0.dp)).clickable { onSelect(episode.id) }.padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("${index + 1}", color = Palette.inkFaint, fontSize = 12.sp, modifier = Modifier.padding(end = 12.dp))

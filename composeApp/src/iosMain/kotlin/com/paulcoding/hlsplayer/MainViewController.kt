@@ -63,6 +63,7 @@ private class PendingEngine : PlatformEngine {
 
 /** The backup moves through the Files app once that is built; until then it is unavailable. */
 private class PendingFiles : FileExchange {
+    override val available = false
     override suspend fun export(name: String, text: String) = false
     override suspend fun import(): String? = null
 }

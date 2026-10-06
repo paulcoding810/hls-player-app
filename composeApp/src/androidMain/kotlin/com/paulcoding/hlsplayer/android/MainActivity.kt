@@ -1,6 +1,8 @@
 package com.paulcoding.hlsplayer.android
 
+import android.app.UiModeManager
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.graphics.Color
 import androidx.activity.ComponentActivity
@@ -10,12 +12,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.paulcoding.hlsplayer.App
 import com.paulcoding.hlsplayer.AppDeps
+import com.paulcoding.hlsplayer.LocalIsTv
 import com.paulcoding.hlsplayer.util.normalizeSource
 
 class MainActivity : ComponentActivity() {
@@ -39,9 +43,12 @@ class MainActivity : ComponentActivity() {
             version = packageManager.getPackageInfo(packageName, 0).versionName ?: "",
             persistScope = app.persistScope,
         )
+        val tv = (getSystemService(UI_MODE_SERVICE) as UiModeManager).currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
         setContent {
-            Box(Modifier.fillMaxSize().safeDrawingPadding()) {
-                App(deps, incoming, onIncomingHandled = { incoming = null })
+            CompositionLocalProvider(LocalIsTv provides tv) {
+                Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+                    App(deps, incoming, onIncomingHandled = { incoming = null })
+                }
             }
         }
     }

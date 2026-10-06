@@ -1,5 +1,7 @@
 package com.paulcoding.hlsplayer.android
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -10,6 +12,12 @@ import kotlinx.coroutines.withContext
 
 /** The Storage Access Framework, so the backup goes wherever the viewer picks. */
 class AndroidFileExchange(private val activity: ComponentActivity) : FileExchange {
+    /** Many TVs ship without a documents UI, and launching one there throws. */
+    override val available: Boolean = listOf(
+        Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json"),
+        Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"),
+    ).all { it.resolveActivity(activity.packageManager) != null }
+
     private var created: CompletableDeferred<Uri?>? = null
     private var opened: CompletableDeferred<Uri?>? = null
 
@@ -18,7 +26,7 @@ class AndroidFileExchange(private val activity: ComponentActivity) : FileExchang
 
     override suspend fun export(name: String, text: String): Boolean {
         val pending = CompletableDeferred<Uri?>().also { created = it }
-        create.launch(name)
+        try { create.launch(name) } catch (_: ActivityNotFoundException) { return false }
         val uri = pending.await() ?: return false
         withContext(Dispatchers.IO) {
             activity.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.encodeToByteArray()) }
@@ -28,7 +36,7 @@ class AndroidFileExchange(private val activity: ComponentActivity) : FileExchang
 
     override suspend fun import(): String? {
         val pending = CompletableDeferred<Uri?>().also { opened = it }
-        open.launch(arrayOf("application/json", "text/plain", "*/*"))
+        try { open.launch(arrayOf("application/json", "text/plain", "*/*")) } catch (_: ActivityNotFoundException) { return null }
         val uri = pending.await() ?: return null
         return withContext(Dispatchers.IO) {
             activity.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }

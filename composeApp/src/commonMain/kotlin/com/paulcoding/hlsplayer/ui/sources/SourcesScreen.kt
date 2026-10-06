@@ -67,6 +67,7 @@ import com.paulcoding.hlsplayer.ui.Radius
 import com.paulcoding.hlsplayer.ui.SectionLabel
 import com.paulcoding.hlsplayer.ui.Sheet
 import com.paulcoding.hlsplayer.ui.TopBar
+import com.paulcoding.hlsplayer.ui.focusRing
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
@@ -288,7 +289,7 @@ fun SourcesScreen() {
                     Text(
                         "${entry.plugin.name} · ${entry.catalog.name}",
                         color = if (entry.key == picked?.key) Palette.primary else Palette.ink,
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius)).clickable { browse(entry) }.padding(12.dp),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius)).focusRing().clickable { browse(entry) }.padding(12.dp),
                     )
                 }
             }
@@ -332,7 +333,7 @@ private fun ResultRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(Modifier.weight(1f).clip(shape).clickable(onClick = onOpen), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.weight(1f).clip(shape).focusRing().clickable(onClick = onOpen), verticalAlignment = Alignment.CenterVertically) {
             Poster(result.poster, Modifier.size(width = 44.dp, height = 64.dp))
             Text(result.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 14.sp, modifier = Modifier.padding(start = 12.dp))
         }

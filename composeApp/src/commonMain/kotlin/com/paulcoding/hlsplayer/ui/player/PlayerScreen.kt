@@ -33,7 +33,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,9 +57,11 @@ import com.paulcoding.hlsplayer.playback.SkipWindow
 import com.paulcoding.hlsplayer.ui.Banner
 import com.paulcoding.hlsplayer.ui.GhostButton
 import com.paulcoding.hlsplayer.ui.IconAction
+import com.paulcoding.hlsplayer.ui.LinkButton
 import com.paulcoding.hlsplayer.ui.Icons
 import com.paulcoding.hlsplayer.ui.Palette
 import com.paulcoding.hlsplayer.ui.Tone
+import com.paulcoding.hlsplayer.ui.focusRing
 import com.paulcoding.hlsplayer.util.formatTime
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -85,6 +95,16 @@ fun PlayerScreen(target: PlayTarget) {
     var fullscreen by remember { mutableStateOf(false) }
     /** The seek bar's value while dragging; the engine is only told on release. */
     var scrubbing by remember { mutableStateOf<Float?>(null) }
+    /** The video itself: where a remote's focus rests while the controls are away. */
+    val stage = remember { FocusRequester() }
+    /**
+     * Where up and down land. The video fills the screen, so the bars are not
+     * below or above it to a focus search; the stage sends focus there itself.
+     */
+    val playButton = remember { FocusRequester() }
+    val topButton = remember { FocusRequester() }
+    /** True while focus is in either bar, so Back returns to the video instead of leaving. */
+    var inBars by remember { mutableStateOf(false) }
 
     LaunchedEffect(target) { controller.open(target) }
     DisposableEffect(Unit) {
@@ -107,8 +127,21 @@ fun PlayerScreen(target: PlayTarget) {
         when {
             sheet != null -> sheet = null
             episodesOpen -> episodesOpen = false
+            inBars -> { runCatching { stage.requestFocus() } }
             else -> { controller.saveNow(); navigator.back() }
         }
+    }
+
+    // A control that faded out takes the focus with it, so it comes back to the video.
+    LaunchedEffect(idle, engineState.playing) {
+        if (idle && engineState.playing) runCatching { stage.requestFocus() }
+    }
+    LaunchedEffect(Unit) { runCatching { stage.requestFocus() } }
+
+    fun seekBy(seconds: Double) {
+        val duration = engineState.duration
+        val target = (engineState.position + seconds).coerceAtLeast(0.0)
+        controller.seekTo(if (duration.isFinite() && duration > 0) target.coerceAtMost(duration) else target)
     }
 
     val primary = state.subtitles.firstOrNull { it.id == state.primarySubtitle }
@@ -116,7 +149,23 @@ fun PlayerScreen(target: PlayTarget) {
     val showControls = !idle || !engineState.playing
     val skipAction = if (state.skip == SkipWindow.Outro && !state.hasNext) null else state.skip
 
-    Column(Modifier.fillMaxSize().background(Color.Black)) {
+    Column(
+        Modifier.fillMaxSize().background(Color.Black).onPreviewKeyEvent { event ->
+            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            // Any key wakes the controls, as a touch does.
+            touched++
+            when (event.key) {
+                Key.MediaPlayPause -> { controller.togglePlay(); true }
+                Key.MediaPlay -> { if (!engineState.playing) controller.togglePlay(); true }
+                Key.MediaPause -> { if (engineState.playing) controller.togglePlay(); true }
+                Key.MediaFastForward -> { seekBy(10.0); true }
+                Key.MediaRewind -> { seekBy(-10.0); true }
+                Key.MediaNext -> { controller.next(); true }
+                Key.MediaPrevious -> { controller.previous(); true }
+                else -> false
+            }
+        },
+    ) {
         state.error?.let { Banner("$it Streams that reject the request usually need a matching Referer.", Tone.Danger) }
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -124,9 +173,26 @@ fun PlayerScreen(target: PlayTarget) {
 
             // The whole frame toggles the controls; a tap while they show plays or pauses.
             Box(
-                Modifier.fillMaxSize().clickable(remember { MutableInteractionSource() }, indication = null) {
-                    if (showControls && engineState.playing) idle = true else touched++
-                },
+                Modifier
+                    .fillMaxSize()
+                    .focusRequester(stage)
+                    // With the video focused, a remote plays, pauses and seeks; up and down
+                    // reach the bars once they show, so the first press only wakes them.
+                    .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        when (event.key) {
+                            Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { controller.togglePlay(); true }
+                            Key.DirectionLeft -> { seekBy(-10.0); true }
+                            Key.DirectionRight -> { seekBy(10.0); true }
+                            // The first press only wakes the bars; the next one moves into them.
+                            Key.DirectionDown -> { if (showControls) runCatching { playButton.requestFocus() }; true }
+                            Key.DirectionUp -> { if (showControls) runCatching { topButton.requestFocus() }; true }
+                            else -> false
+                        }
+                    }
+                    .clickable(remember { MutableInteractionSource() }, indication = null) {
+                        if (showControls && engineState.playing) idle = true else touched++
+                    },
             )
 
             SubtitleOverlay(primary, secondary, engineState.position, state.subtitleOffset, settings,
@@ -148,8 +214,9 @@ fun PlayerScreen(target: PlayTarget) {
                 }
             }
 
-            Fade(showControls || episodesOpen, Modifier.align(Alignment.TopCenter)) {
+            Fade(showControls || episodesOpen, Modifier.align(Alignment.TopCenter).onFocusChanged { inBars = it.hasFocus }) {
                 TopControls(
+                    focus = topButton,
                     title = state.movie?.let { "${it.title} · ${state.title}" } ?: state.title,
                     counter = state.movie?.takeIf { it.episodes.size > 1 && state.episodeIndex > -1 }?.let { "${state.episodeIndex + 1} / ${it.episodes.size}" },
                     grabbed = state.grabbed != null,
@@ -168,8 +235,9 @@ fun PlayerScreen(target: PlayTarget) {
                 )
             }
 
-            Fade(showControls, Modifier.align(Alignment.BottomCenter)) {
+            Fade(showControls, Modifier.align(Alignment.BottomCenter).onFocusChanged { inBars = it.hasFocus }) {
                 BottomControls(
+                    playFocus = playButton,
                     position = scrubbing?.toDouble() ?: engineState.position,
                     duration = engineState.duration,
                     playing = engineState.playing,
@@ -222,6 +290,7 @@ private val scrimUp = Brush.verticalGradient(listOf(Color.Transparent, Color.Bla
 
 @Composable
 private fun TopControls(
+    focus: FocusRequester,
     title: String,
     counter: String?,
     grabbed: Boolean,
@@ -239,13 +308,14 @@ private fun TopControls(
         IconAction(Icons.Library, "Back to the library", onBack, tint = Color.White)
         Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp, modifier = Modifier.weight(1f))
         counter?.let { Text(it, color = Palette.inkFaint, fontSize = 12.sp) }
-        if (grabbed) GhostButton(if (saved) "Added to library" else "Add to library", onKeep, enabled = !saved, icon = Icons.Plus)
-        else GhostButton("Episodes", onEpisodes, icon = Icons.Playlist, active = episodesOpen)
+        if (grabbed) GhostButton(if (saved) "Added to library" else "Add to library", onKeep, Modifier.focusRequester(focus), enabled = !saved, icon = Icons.Plus)
+        else GhostButton("Episodes", onEpisodes, Modifier.focusRequester(focus), icon = Icons.Playlist, active = episodesOpen)
     }
 }
 
 @Composable
 private fun BottomControls(
+    playFocus: FocusRequester,
     position: Double,
     duration: Double,
     playing: Boolean,
@@ -275,11 +345,12 @@ private fun BottomControls(
             onValueChangeFinished = onScrubEnd,
             valueRange = 0f..(if (seekable) duration.toFloat() else 1f),
             enabled = seekable,
+            modifier = Modifier.focusRing(),
             colors = SliderDefaults.colors(thumbColor = Palette.primary, activeTrackColor = Palette.primary, inactiveTrackColor = Palette.lineStrong),
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconAction(Icons.Prev, "Previous episode", onPrevious, enabled = hasPrevious, tint = Color.White)
-            IconAction(if (playing) Icons.Pause else Icons.Play, if (playing) "Pause" else "Play", onToggle, tint = Color.White)
+            IconAction(if (playing) Icons.Pause else Icons.Play, if (playing) "Pause" else "Play", onToggle, Modifier.focusRequester(playFocus), tint = Color.White)
             IconAction(Icons.Next, "Next episode", onNext, enabled = hasNext, tint = Color.White)
             Text(
                 "${formatTime(position)} / ${if (duration == Double.POSITIVE_INFINITY) "Live" else formatTime(duration)}",
@@ -289,7 +360,7 @@ private fun BottomControls(
             IconAction(if (muted) Icons.VolumeMuted else Icons.Volume, if (muted) "Unmute" else "Mute", onMute, tint = Color.White)
             if (streams > 1) IconAction(Icons.Layers, "Stream source", onStreams, tint = Color.White)
             IconAction(Icons.Settings, if (subtitles) "Subtitles" else "Subtitle look", onSubtitles, tint = if (subtitlesOn) Palette.primary else Color.White)
-            Text("Speed", fontSize = 12.sp, color = Palette.inkMuted, modifier = Modifier.clickable(onClick = onPlayback).padding(8.dp))
+            LinkButton("Speed", onPlayback)
             IconAction(if (fullscreen) Icons.FullscreenExit else Icons.Fullscreen, if (fullscreen) "Exit fullscreen" else "Fullscreen", onFullscreen, tint = Color.White)
         }
     }

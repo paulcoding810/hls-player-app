@@ -59,6 +59,8 @@ import com.paulcoding.hlsplayer.ui.SectionLabel
 import com.paulcoding.hlsplayer.ui.SwitchRow
 import com.paulcoding.hlsplayer.ui.TopBar
 import com.paulcoding.hlsplayer.ui.UrlText
+import com.paulcoding.hlsplayer.ui.focusRing
+import com.paulcoding.hlsplayer.util.normalizeSource
 import kotlinx.coroutines.launch
 
 /** The extension's options page: global defaults, subtitles, addons and the backup. */
@@ -130,7 +132,8 @@ fun SettingsScreen() {
                     Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Switch(
                             plugin.enabled,
-                            { on -> scope.launch { deps.data.updatePlugin(plugin.id) { it.copy(enabled = on) } } },
+                            onCheckedChange = { on -> scope.launch { deps.data.updatePlugin(plugin.id) { it.copy(enabled = on) } } },
+                            modifier = Modifier.focusRing(),
                             colors = SwitchDefaults.colors(checkedTrackColor = Palette.primary, checkedThumbColor = Color.White,
                                 uncheckedTrackColor = Palette.elevated, uncheckedBorderColor = Palette.lineStrong, uncheckedThumbColor = Palette.inkMuted),
                         )
@@ -152,12 +155,12 @@ fun SettingsScreen() {
             SectionLabel("Data")
             Help("The export holds the library, the addons, the settings and every watch position — the same file the browser extension writes and reads. Importing merges it in: a movie or addon already here is updated, the rest are added.")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GhostButton("Export", {
+                GhostButton("Export", enabled = deps.files.available, onClick = {
                     scope.launch {
                         if (deps.files.export(backupFileName(), buildBackup(deps.data))) navigator.warn("Exported the library.")
                     }
                 }, icon = Icons.Download)
-                GhostButton("Import", {
+                GhostButton("Import", enabled = deps.files.available, onClick = {
                     scope.launch {
                         val text = deps.files.import() ?: return@launch
                         try {
@@ -169,6 +172,27 @@ fun SettingsScreen() {
                     }
                 }, icon = Icons.Upload)
             }
+            if (!deps.files.available) Help("This device has no file picker — many TVs do not. Import from a URL instead.")
+            var importUrl by remember { mutableStateOf("") }
+            var importing by remember { mutableStateOf(false) }
+            fun importFromUrl() = scope.launch {
+                val url = normalizeSource(importUrl) ?: return@launch navigator.fail("That is not an http(s) URL.")
+                importing = true
+                try {
+                    val result = applyBackup(deps.data, readBackup(deps.fetchText.fetch(url, "")))
+                    navigator.warn("Imported: ${result.added} new movie(s), ${result.updated} updated, ${result.positions} watch position(s) and ${result.plugins} addon(s).")
+                    importUrl = ""
+                } catch (e: BackupException) {
+                    navigator.fail(e.message.orEmpty())
+                } catch (e: Exception) {
+                    navigator.fail("Could not fetch the file: ${e.message}")
+                } finally {
+                    importing = false
+                }
+            }
+            Field("Import from a URL", importUrl, { importUrl = it }, mono = true, placeholder = "https://example.com/hls-player-2026-10-05.json",
+                help = "An export placed anywhere this device can reach, such as a file served from your computer.", onSubmit = { importFromUrl() })
+            GhostButton(if (importing) "Importing…" else "Import from URL", { importFromUrl() }, enabled = importUrl.isNotBlank() && !importing, icon = Icons.Download)
             Help("HLS Player ${deps.version}")
         }
     }

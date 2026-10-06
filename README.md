@@ -46,6 +46,24 @@ skip windows, the outro countdown, preloading the next episode, subtitle choice 
 - **Links**: `.m3u8` and `.mpd` links handed to the app open in the player, the extension's
   "take over manifest navigations".
 
+## Android TV
+
+One APK serves phones and TVs: neither a touchscreen nor the TV interface is required, and the TV
+home screen lists the app with its banner (`res/drawable-xhdpi/banner.png`). Everything works with
+a remote:
+
+- **Focus** shows as a red ring on every control (light on the solid red button), and a focused
+  poster dims with a play mark. A confirmation opens on its affirmative answer.
+- **Player**: with the video focused, center plays and pauses, left and right seek 10 s, down and up
+  move into the control bar and the top bar, and Back returns from either to the video before it
+  leaves. Media keys work anywhere. Any key wakes the controls.
+- **Text fields** take focus without opening the keyboard — center opens it — so a remote can walk
+  down a form.
+- **Backup**: many TVs ship without a file picker, so Export and Import are disabled there with a
+  note, and **Import from a URL** reads an export from anywhere the TV can reach.
+
+Tested on the `Television_720p` emulator (Android TV, API 36).
+
 ## Build and test
 
 ```shell

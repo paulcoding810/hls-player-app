@@ -3,10 +3,15 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- One APK for phones and TVs: neither a touchscreen nor the TV interface is required. -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+
     <application
         android:name=".android.HlsApp"
         android:label="HLS Player"
         android:icon="@android:drawable/ic_media_play"
+        android:banner="@drawable/banner"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.HlsPlayer">
@@ -19,6 +24,11 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- The TV home screen lists apps from this category, with the banner. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
             <!-- The extension's grabbed links: a manifest URL opens the player outside the library. -->
             <intent-filter>

@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -238,11 +239,25 @@ private fun MovieCard(
 ) {
     val shape = RoundedCornerShape(Radius)
     Column(Modifier.clip(shape).background(Palette.panel).border(1.dp, Palette.line, shape)) {
-        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).background(Palette.elevated).clickable(onClick = onPlay), contentAlignment = Alignment.Center) {
+        // The poster is what a remote presses most, and the card's own border hides an edge
+        // ring, so focus shows as the extension's hover does: dimmed, with a play mark.
+        var focused by remember { mutableStateOf(false) }
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(2f / 3f).background(Palette.elevated)
+                .onFocusChanged { focused = it.isFocused }.clickable(onClick = onPlay),
+            contentAlignment = Alignment.Center,
+        ) {
             if (movie.poster.isNotEmpty()) {
                 AsyncImage(movie.poster, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             } else {
                 Icon(Icons.Film, null, Modifier.size(28.dp), tint = Palette.inkFaint)
+            }
+            if (focused) {
+                Box(
+                    Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f))
+                        .padding(3.dp).border(3.dp, Palette.primary, RoundedCornerShape(Radius)),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Play, null, Modifier.size(40.dp), tint = Palette.ink) }
             }
             if (movie.watchedAt != null) {
                 Row(
