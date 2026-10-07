@@ -81,9 +81,13 @@ the extension's format changes.
 
 ## Not done yet
 
-- **iOS playback and file picking.** AVPlayer has no playlist hook, so ad stripping and PNG-wrapped
-  segments need a local proxy or an `AVAssetResourceLoaderDelegate`; `Referer` goes through
-  `AVURLAsset` header options. The UI runs; the player says it is not built.
+- **iOS playback and file picking.** AVPlayer has no playlist hook, so it will play through a local
+  proxy. Its logic is written and tested in `shared/…/proxy` — upstream paths mirrored under
+  `/s/<token>/`, playlists stripped of ads and their URIs pointed at the proxy, PNG wrappers taken
+  off as segments stream, ranges and upstream refusals passed through, a token per playback so the
+  loopback port is no open relay — and `ProxyHandler` answers a request without knowing what server
+  calls it. Still to do: the server binding it to `127.0.0.1`, and the AVPlayer engine. The UI runs;
+  the player says it is not built.
 - **Subtitle tracks inside an HLS manifest** (`EXT-X-MEDIA TYPE=SUBTITLES`) are not offered. Files
   attached to a movie or shipped by an addon's stream are.
 - **Editing a movie from the player.** The extension offers it in the side panel; here it is on
