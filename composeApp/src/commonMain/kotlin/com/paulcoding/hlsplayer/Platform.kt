@@ -27,6 +27,11 @@ interface FileExchange {
 /** True on a TV: driven by a remote, so focusing a field must not open the keyboard. */
 val LocalIsTv = androidx.compose.runtime.staticCompositionLocalOf { false }
 
+/**
+ * Back, from wherever the platform sends it: the system button on Android, and
+ * on iOS — which has none — a swipe in from the screen's leading edge. The
+ * innermost enabled handler takes it, as Android's dispatcher decides.
+ */
 @Composable
 expect fun BackHandler(enabled: Boolean = true, onBack: () -> Unit)
 

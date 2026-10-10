@@ -2,8 +2,8 @@
 
 The [HLS Player browser extension](../hls-player) as a Kotlin Multiplatform app: a library of HLS
 and DASH movies, Stremio addons as sources, a per-movie `Referer`, server-side ad stripping,
-intro and outro skipping, resume, subtitles and a stream picker. Android ships; iOS compiles but
-does not play yet.
+intro and outro skipping, resume, subtitles and a stream picker. Android and iOS both play; iOS
+through a local proxy.
 
 It reads and writes the extension's backup file (`hls-player-backup` v1), so a library moves
 between the browser and the phone in either direction.
@@ -64,6 +64,38 @@ a remote:
 
 Tested on the `Television_720p` emulator (Android TV, API 36).
 
+## iOS
+
+AVPlayer has no hook for headers, playlists or segment bytes, so it plays through a local proxy
+(`shared/…/proxy`): `ProxyServer` listens on `127.0.0.1` on a port the system picks, the player is
+handed a loopback URL with the upstream path mirrored under `/s/<token>/`, and `ProxyHandler` sends
+the `Referer`, cuts the ads from playlists and points their URIs back at itself, takes PNG wrappers
+off segments, and passes ranges and upstream refusals through. Each playback opens a session with
+its own token, so the port is no open relay for other apps. `IosEngine` is the AVPlayer side.
+
+The Compose view controller is the window's root (`iosApp/iosApp/iOSApp.swift`), with no SwiftUI
+around it. iOS has no back button, so back is a swipe in from the left edge: a pan limited to a
+24 pt strip, handed to `goBack()`, which asks the newest enabled `BackHandler` — the sheet before
+the panel before the screen, as Android's dispatcher decides. It is a plain pan rather than
+`UIScreenEdgePanGestureRecognizer` because the edge recognizer relies on bezel information only
+real touches carry, so no UI test can exercise it; Sources and Settings also show a back button.
+A simulator that ran the earlier SwiftUI build keeps its old scene session, which shows a black
+screen — uninstall the app once.
+
+`hlsplayer://play?url=<manifest>` opens a link in the player outside the library, as Android's
+`VIEW` intent does. Debug builds also take `SIMCTL_CHILD_HLS_OPEN_URL=<manifest>` at launch, which
+drives a simulator run without tapping iOS's "Open in…?" prompt:
+
+```shell
+xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO build
+xcrun simctl install "iPhone 17" build/ios/Build/Products/Debug-iphonesimulator/HLSPlayer.app
+SIMCTL_CHILD_HLS_OPEN_URL=https://example.com/one.m3u8 xcrun simctl launch "iPhone 17" com.paulcoding.hlsplayer.HLSPlayer
+```
+
+`Info.plist` allows local networking (the proxy) and arbitrary loads (plain-http stream hosts) —
+Android's `usesCleartextTraffic`.
+
 ## Build and test
 
 ```shell
@@ -81,13 +113,9 @@ the extension's format changes.
 
 ## Not done yet
 
-- **iOS playback and file picking.** AVPlayer has no playlist hook, so it will play through a local
-  proxy. Its logic is written and tested in `shared/…/proxy` — upstream paths mirrored under
-  `/s/<token>/`, playlists stripped of ads and their URIs pointed at the proxy, PNG wrappers taken
-  off as segments stream, ranges and upstream refusals passed through, a token per playback so the
-  loopback port is no open relay — and `ProxyHandler` answers a request without knowing what server
-  calls it. Still to do: the server binding it to `127.0.0.1`, and the AVPlayer engine. The UI runs;
-  the player says it is not built.
+- **iOS file picking.** Backups move only through Android or the extension for now; import from a
+  URL works on iOS too.
+- **Choosing a rendition on iOS.** AVPlayer picks the quality itself and offers no list to pin.
 - **Subtitle tracks inside an HLS manifest** (`EXT-X-MEDIA TYPE=SUBTITLES`) are not offered. Files
   attached to a movie or shipped by an addon's stream are.
 - **Editing a movie from the player.** The extension offers it in the side panel; here it is on

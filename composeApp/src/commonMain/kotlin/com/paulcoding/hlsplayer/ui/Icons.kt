@@ -27,6 +27,7 @@ private fun icon(name: String, vararg paths: String): ImageVector =
     }.build()
 
 object Icons {
+    val Back: ImageVector by lazy { icon("Back", "M15 5l-7 7 7 7") }
     val Prev: ImageVector by lazy { icon("Prev", "M19 5v14l-10-7 10-7Z", "M5 5v14") }
     val Next: ImageVector by lazy { icon("Next", "M5 5v14l10-7-10-7Z", "M19 5v14") }
     val Play: ImageVector by lazy { icon("Play", "M7 4.5v15l12-7.5-12-7.5Z") }

@@ -23,6 +23,9 @@ kotlin {
             api(libs.kotlinx.serialization.json)
             api(libs.ktor.client.core)
             api(libs.okio)
+            // The local proxy for players without hooks; Android plays through Media3's own.
+            implementation(libs.ktor.server.core)
+            implementation(libs.ktor.server.cio)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)

@@ -388,9 +388,11 @@ fun UrlText(text: String, modifier: Modifier = Modifier, color: Color = Palette.
 
 /** A bar of actions under a title, `px-4 py-2` with one bottom edge. */
 @Composable
-fun TopBar(title: String, modifier: Modifier = Modifier, actions: @Composable RowScope.() -> Unit = {}) {
+fun TopBar(title: String, modifier: Modifier = Modifier, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Column(modifier.fillMaxWidth().background(Palette.surface)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // On screen as well as in the gesture: iOS has no back button, and a swipe is not discoverable.
+            if (onBack != null) IconAction(Icons.Back, "Back", onBack, tint = Palette.ink)
             Text(title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             actions()
         }

@@ -233,7 +233,7 @@ fun SourcesScreen() {
     }
 
     Column(Modifier.fillMaxSize()) {
-        TopBar("Sources") { IconAction(Icons.Library, "Library", { navigator.back() }) }
+        TopBar("Sources", onBack = { navigator.back() })
         if (plugins.none { it.enabled }) {
             Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Icon(Icons.Film, null, Modifier.size(40.dp), tint = Palette.inkFaint)

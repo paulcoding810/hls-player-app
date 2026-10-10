@@ -79,7 +79,7 @@ fun SettingsScreen() {
     fun update(change: (Settings) -> Settings) = scope.launch { deps.data.updateSettings(change) }
 
     Column(Modifier.fillMaxSize()) {
-        TopBar("Settings")
+        TopBar("Settings", onBack = { navigator.back() })
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             SectionLabel("Playback")
             // Fields hold raw text while typing; the stored value is sanitized on write.
