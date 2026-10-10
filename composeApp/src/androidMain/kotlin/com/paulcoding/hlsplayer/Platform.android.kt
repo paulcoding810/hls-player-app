@@ -15,7 +15,7 @@ actual fun BackHandler(enabled: Boolean, onBack: () -> Unit) =
     androidx.activity.compose.BackHandler(enabled, onBack)
 
 @Composable
-actual fun FullscreenEffect(enabled: Boolean) {
+actual fun FullscreenEffect(enabled: Boolean, onExit: () -> Unit) {
     val activity = LocalContext.current as? Activity ?: return
     DisposableEffect(enabled) {
         val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)

@@ -7,6 +7,7 @@ Read `README.md` for the layout and what is not done yet.
 ./gradlew :shared:jvmTest
 ./gradlew :shared:iosSimulatorArm64Test
 ./gradlew :composeApp:assembleDebug
+./gradlew :composeApp:run          # desktop; needs VLC installed
 ```
 
 ## Rules

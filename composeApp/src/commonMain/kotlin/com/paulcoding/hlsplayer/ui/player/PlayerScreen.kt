@@ -121,7 +121,7 @@ fun PlayerScreen(target: PlayTarget) {
         }
     }
 
-    FullscreenEffect(fullscreen)
+    FullscreenEffect(fullscreen, onExit = { fullscreen = false })
     KeepScreenOn(engineState.playing)
     BackHandler {
         when {

@@ -28,16 +28,17 @@ interface FileExchange {
 val LocalIsTv = androidx.compose.runtime.staticCompositionLocalOf { false }
 
 /**
- * Back, from wherever the platform sends it: the system button on Android, and
- * on iOS — which has none — a swipe in from the screen's leading edge. The
- * innermost enabled handler takes it, as Android's dispatcher decides.
+ * Back, from wherever the platform sends it: the system button on Android, a
+ * swipe in from the leading edge on iOS — which has no button — and Escape on
+ * the desktop. The innermost enabled handler takes it, as Android's dispatcher
+ * decides.
  */
 @Composable
 expect fun BackHandler(enabled: Boolean = true, onBack: () -> Unit)
 
-/** Landscape with the system bars hidden while [enabled]; the screen stays on. */
+/** Landscape with the system bars hidden while [enabled]; [onExit] runs when the platform leaves it itself. */
 @Composable
-expect fun FullscreenEffect(enabled: Boolean)
+expect fun FullscreenEffect(enabled: Boolean, onExit: () -> Unit)
 
 /** Keeps the display awake while video plays. */
 @Composable

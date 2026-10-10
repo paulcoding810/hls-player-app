@@ -1,9 +1,9 @@
-# HLS Player for Android
+# HLS Player app
 
 The [HLS Player browser extension](../hls-player) as a Kotlin Multiplatform app: a library of HLS
 and DASH movies, Stremio addons as sources, a per-movie `Referer`, server-side ad stripping,
-intro and outro skipping, resume, subtitles and a stream picker. Android and iOS both play; iOS
-through a local proxy.
+intro and outro skipping, resume, subtitles and a stream picker. Android, iOS and the desktop
+(macOS, Windows, Linux) all play; iOS and the desktop through a local proxy.
 
 It reads and writes the extension's backup file (`hls-player-backup` v1), so a library moves
 between the browser and the phone in either direction.
@@ -96,6 +96,26 @@ SIMCTL_CHILD_HLS_OPEN_URL=https://example.com/one.m3u8 xcrun simctl launch "iPho
 `Info.plist` allows local networking (the proxy) and arbitrary loads (plain-http stream hosts) —
 Android's `usesCleartextTraffic`.
 
+## Desktop
+
+A JVM target of `composeApp` (`desktopMain`). Playback is libVLC through
+[vlcj](https://github.com/caprica/vlcj), so **VLC 3 must be installed** — vlcj finds it in the usual
+places (`/Applications/VLC.app` on macOS); without it the player says so. VLC is handed the same
+loopback URL as AVPlayer, so the proxy does the `Referer`, ad cutting and segment unwrapping.
+`VlcEngine` takes decoded frames as pixels and Compose draws them, because a native video view
+cannot sit under Compose's own controls.
+
+Escape is back (`BackStack`, shared with iOS's swipe), and leaves fullscreen first. A manifest URL
+or `hlsplayer://play?url=…` link passed as the first argument, or opened through the OS, plays
+outside the library. Data lives in `~/Library/Application Support/HLS Player` on macOS,
+`%APPDATA%\HLS Player` on Windows and `~/.local/share/hls-player` on Linux; `HLS_DATA_DIR`
+points a test run elsewhere.
+
+```shell
+./gradlew :composeApp:run
+./gradlew :composeApp:packageDmg    # or packageMsi / packageDeb, on that OS
+```
+
 ## Build and test
 
 ```shell
@@ -103,6 +123,7 @@ Android's `usesCleartextTraffic`.
 ./gradlew :shared:iosSimulatorArm64Test            # the same suite on the iOS simulator
 ./gradlew :composeApp:assembleDebug                # -> composeApp/build/outputs/apk/debug
 ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
+./gradlew :composeApp:run                          # the desktop app
 ```
 
 JDK 17 and the Android SDK (API 36) are needed; Xcode for the iOS tasks.
@@ -115,7 +136,10 @@ the extension's format changes.
 
 - **iOS file picking.** Backups move only through Android or the extension for now; import from a
   URL works on iOS too.
-- **Choosing a rendition on iOS.** AVPlayer picks the quality itself and offers no list to pin.
+- **Choosing a rendition on iOS and the desktop.** AVPlayer and VLC pick the quality themselves.
+- **Keeping the display awake on the desktop** while video plays.
+- **The desktop `hlsplayer://` scheme** is handled when the OS delivers it, but the packaged app
+  does not register it yet.
 - **Subtitle tracks inside an HLS manifest** (`EXT-X-MEDIA TYPE=SUBTITLES`) are not offered. Files
   attached to a movie or shipped by an addon's stream are.
 - **Editing a movie from the player.** The extension offers it in the side panel; here it is on

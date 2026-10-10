@@ -1,3 +1,4 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -9,6 +10,9 @@ plugins {
 
 kotlin {
     androidTarget {
+        compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
+    }
+    jvm("desktop") {
         compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
     }
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
@@ -37,6 +41,14 @@ kotlin {
             implementation(libs.media3.exoplayer.hls)
             implementation(libs.media3.exoplayer.dash)
             implementation(libs.media3.ui)
+        }
+        val desktopMain by getting {
+            dependencies {
+                implementation(compose.desktop.currentOs)
+                implementation(libs.kotlinx.coroutines.swing)
+                implementation(libs.ktor.client.okhttp)
+                implementation(libs.vlcj)
+            }
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
@@ -69,4 +81,16 @@ android {
 
 dependencies {
     debugImplementation(libs.compose.uiTooling)
+}
+
+compose.desktop {
+    application {
+        mainClass = "com.paulcoding.hlsplayer.desktop.MainKt"
+        nativeDistributions {
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            packageName = "HLS Player"
+            packageVersion = "1.0.0"
+            macOS { bundleID = "com.paulcoding.hlsplayer" }
+        }
+    }
 }
