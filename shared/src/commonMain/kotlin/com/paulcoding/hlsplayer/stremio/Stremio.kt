@@ -45,7 +45,7 @@ class StremioException(message: String) : Exception(message)
 
 data class SearchResult(val id: String, val title: String, val poster: String, val type: String, val plugin: Plugin)
 
-data class CatalogRef(val type: String, val id: String, val name: String, val pageable: Boolean = false)
+data class CatalogRef(val type: String, val id: String, val name: String, val pageable: Boolean = false, val searchable: Boolean = false)
 
 /** One searchable catalog's answer; a catalog that failed carries its error instead of vanishing. */
 data class CatalogResults(val catalog: CatalogRef?, val results: List<SearchResult>, val error: String = "")
@@ -266,6 +266,7 @@ class StremioClient(private val http: HttpClient) {
             name = it.field("name").string().ifEmpty { it.field("id").string() },
             // Only a catalog that declares `skip` can be paged past its first page.
             pageable = hasExtra(it, "skip"),
+            searchable = hasExtra(it, "search"),
         )
     }
 
@@ -277,33 +278,36 @@ class StremioClient(private val http: HttpClient) {
             .map { toResult(it, plugin, catalog.type) }
     }
 
+    /** One catalog's answer to a search; a failure is carried in it rather than thrown. */
+    suspend fun searchCatalog(plugin: Plugin, catalog: CatalogRef, query: String, label: String = labelOf(plugin)): CatalogResults {
+        val named = CatalogRef(type = catalog.type, id = catalog.id, name = catalog.name)
+        return try {
+            val url = "${baseOf(plugin)}/catalog/${named.type}/${named.id}/search=${query.encodeURLParameter()}.json"
+            val seen = mutableSetOf<String>()
+            val results = fetchJson(url, label).obj().field("metas").arr().orEmpty().mapNotNull { it.obj() }
+                .filter { isListed(it) && seen.add(idOf(it.field("id"))) }
+                .map { toResult(it, plugin) }
+            CatalogResults(named, results)
+        } catch (error: StremioException) {
+            CatalogResults(named, emptyList(), error.message.orEmpty())
+        }
+    }
+
     /**
      * One entry per catalog that declares a `search` extra, rather than a merged
      * list: "Series" and "Movies" are different answers to the same question.
      */
     suspend fun search(plugin: Plugin, query: String): List<CatalogResults> {
         val manifest = readManifest(plugin)
-        val base = baseOf(plugin)
         val label = plugin.name.ifEmpty { manifest.obj().field("name").string().ifEmpty { "The addon" } }
         return coroutineScope {
             catalogsOf(manifest).filter { hasExtra(it, "search") }.map { catalog ->
-                async {
-                    val named = CatalogRef(
-                        type = catalog.field("type").string(),
-                        id = catalog.field("id").string(),
-                        name = catalog.field("name").string().ifEmpty { catalog.field("id").string() },
-                    )
-                    try {
-                        val url = "$base/catalog/${named.type}/${named.id}/search=${query.encodeURLParameter()}.json"
-                        val seen = mutableSetOf<String>()
-                        val results = fetchJson(url, label).obj().field("metas").arr().orEmpty().mapNotNull { it.obj() }
-                            .filter { isListed(it) && seen.add(idOf(it.field("id"))) }
-                            .map { toResult(it, plugin) }
-                        CatalogResults(named, results)
-                    } catch (error: StremioException) {
-                        CatalogResults(named, emptyList(), error.message.orEmpty())
-                    }
-                }
+                val ref = CatalogRef(
+                    type = catalog.field("type").string(),
+                    id = catalog.field("id").string(),
+                    name = catalog.field("name").string().ifEmpty { catalog.field("id").string() },
+                )
+                async { searchCatalog(plugin, ref, query, label) }
             }.awaitAll()
         }
     }

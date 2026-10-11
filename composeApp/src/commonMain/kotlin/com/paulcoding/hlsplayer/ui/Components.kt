@@ -21,6 +21,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -254,6 +256,28 @@ fun SwitchRow(text: String, checked: Boolean, onChange: (Boolean) -> Unit, modif
                 uncheckedThumbColor = Palette.inkMuted,
             ),
         )
+    }
+}
+
+/** A checkbox row whose whole width toggles; [note] sits at the end, faint. */
+@Composable
+fun CheckRow(text: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, note: String? = null) {
+    Row(
+        modifier.fillMaxWidth().clip(shape).focusRing().clickable { onChange(!checked) }.padding(vertical = 4.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(
+            checked = checked,
+            // The row toggles it, for the same reason as SwitchRow's switch.
+            onCheckedChange = null,
+            colors = CheckboxDefaults.colors(
+                checkedColor = Palette.primary,
+                uncheckedColor = Palette.lineStrong,
+                checkmarkColor = Color.White,
+            ),
+        )
+        Text(text, fontSize = 14.sp, color = Palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 12.dp))
+        if (note != null) Help(note, Modifier.padding(start = 8.dp))
     }
 }
 

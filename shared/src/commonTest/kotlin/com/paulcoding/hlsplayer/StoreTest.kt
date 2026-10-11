@@ -24,6 +24,14 @@ class StoreTest {
         assertEquals(0.3, reopened.settings.value.volume)
     }
 
+    @Test fun remembersTheSourceScopeOutsideTheBackup() = runTest {
+        val fixture = Fixture()
+        assertEquals(emptyList(), fixture.data.sourceScope())
+        fixture.data.setSourceScope(listOf("p1:movie:top", "p2:series:new"))
+        assertEquals(listOf("p1:movie:top", "p2:series:new"), fixture.reopen().sourceScope())
+        assertTrue("p1:movie:top" !in com.paulcoding.hlsplayer.backup.buildBackup(fixture.data), "a device convenience, not library data")
+    }
+
     @Test fun storesOnlyAPositionWorthResuming() = runTest {
         val data = Fixture().data
         data.saveProgress("k", 5.0, 1000.0)

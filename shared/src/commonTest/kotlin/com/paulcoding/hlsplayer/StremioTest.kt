@@ -133,6 +133,18 @@ class StremioTest {
     @Test fun listsCatalogsAndWhichPage() = realTime {
         val catalogs = Server(mapOf("manifest.json" to MANIFEST)).client.listCatalogs(ADDON)
         assertEquals(listOf(true, false, false), catalogs.map { it.pageable })
+        assertEquals(listOf(true, true, false), catalogs.map { it.searchable })
+    }
+
+    @Test fun searchesOneCatalogWithoutTheManifest() = realTime {
+        val server = Server(mapOf("/catalog/movie/top/search=" to """{"metas":[{"id":"tt9","name":"Film"}]}"""))
+        val found = server.client.searchCatalog(ADDON, CatalogRef("movie", "top", "Movies", searchable = true), "a b")
+        assertEquals(listOf("https://addon.test/catalog/movie/top/search=a%20b.json"), server.asked)
+        assertEquals("Movies", found.catalog?.name)
+        assertEquals(listOf("tt9"), found.results.map { it.id })
+
+        val failed = Server(emptyMap()).client.searchCatalog(ADDON, CatalogRef("movie", "top", "Movies"), "x")
+        assertEquals("Addon answered 404.", failed.error, "a failure is carried, not thrown")
     }
 
     @Test fun readsAStremioInstallLinkOverHttps() = realTime {

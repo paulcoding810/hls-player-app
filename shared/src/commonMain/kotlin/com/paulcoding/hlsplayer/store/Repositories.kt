@@ -33,6 +33,8 @@ const val LIBRARY = "library"
 const val SETTINGS = "settings"
 const val PROGRESS = "progress"
 const val PLUGINS = "plugins"
+/** The catalogs ticked on the Sources screen: this device's convenience, never in a backup. */
+const val SOURCE_SCOPE = "sourceScope"
 
 /** Below this many seconds in there is nothing worth resuming. */
 const val RESUME_MIN_POSITION = 15.0
@@ -221,6 +223,16 @@ class AppData(val store: JsonStore, private val now: () -> Long = ::nowMillis, p
         val next = sanitize(change(readSettings(raw as? JsonObject)))
         _settings.value = next
         encode(Settings.serializer(), next) to next
+    }
+
+    // ---- sources
+
+    /** Keys of the catalogs a search covers; empty is every catalog. */
+    fun sourceScope(): List<String> =
+        (store.read(SOURCE_SCOPE) as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.content }
+
+    suspend fun setSourceScope(keys: List<String>) {
+        store.replace(SOURCE_SCOPE, JsonArray(keys.map(::JsonPrimitive)))
     }
 
     // ---- plugins

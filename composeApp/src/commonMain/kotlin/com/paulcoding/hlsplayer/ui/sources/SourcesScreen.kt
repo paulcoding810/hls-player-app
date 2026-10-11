@@ -56,7 +56,9 @@ import com.paulcoding.hlsplayer.stremio.SourceGroup
 import com.paulcoding.hlsplayer.stremio.StremioException
 import com.paulcoding.hlsplayer.stremio.searchAll
 import com.paulcoding.hlsplayer.ui.Field
+import com.paulcoding.hlsplayer.ui.CheckRow
 import com.paulcoding.hlsplayer.ui.GhostButton
+import com.paulcoding.hlsplayer.ui.LinkButton
 import com.paulcoding.hlsplayer.ui.Help
 import com.paulcoding.hlsplayer.ui.IconAction
 import com.paulcoding.hlsplayer.ui.Icons
@@ -71,6 +73,21 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 
+/** What the scope button says the search covers. */
+private fun scopeLabel(ticked: List<CatalogEntry>): String = when (ticked.size) {
+    0 -> "In every catalog"
+    1 -> "In ${ticked[0].plugin.name} · ${ticked[0].catalog.name}"
+    else -> "In ${ticked.size} catalogs"
+}
+
+/** The line under the search box: what a search skips, or that nothing ticked can be searched. */
+private fun scopeHelp(ticked: List<CatalogEntry>, skipped: List<CatalogEntry>, unsearchable: Boolean): String? = when {
+    unsearchable && ticked.size == 1 -> "This catalog can only be browsed — the addon offers no search for it."
+    unsearchable -> "None of these catalogs can be searched — the addons offer no search for them."
+    skipped.isNotEmpty() -> "Search skips ${skipped.joinToString { it.catalog.name }}, which can only be browsed."
+    else -> null
+}
+
 /** What a catalog hands back in one go; the next page starts after it. */
 private const val PAGE = 100
 
@@ -83,8 +100,8 @@ private data class Viewing(val plugin: Plugin, val result: SearchResult, val det
 }
 
 /**
- * The extension's `catalog.html`: search every enabled addon, or browse one of
- * their catalogs. It is the only place movies are added from an addon.
+ * The extension's `catalog.html`: search the ticked catalogs — every enabled
+ * addon's when none is — and browse the one ticked alone. It is the only place movies are added from an addon.
  */
 @Composable
 fun SourcesScreen() {
@@ -99,7 +116,10 @@ fun SourcesScreen() {
     var groups by remember { mutableStateOf<List<SourceGroup>?>(null) }
     var searching by remember { mutableStateOf(false) }
     var catalogs by remember { mutableStateOf(emptyList<CatalogEntry>()) }
-    var picked by remember { mutableStateOf<CatalogEntry?>(null) }
+    /** Keys of the ticked catalogs; empty is every catalog. */
+    var chosen by remember { mutableStateOf(deps.data.sourceScope()) }
+    /** Bumped by every change of scope, so a listing that lands late is dropped. */
+    var listing by remember { mutableStateOf(0) }
     var picking by remember { mutableStateOf(false) }
     var results by remember { mutableStateOf(emptyList<SearchResult>()) }
     var browsing by remember { mutableStateOf(false) }
@@ -173,26 +193,41 @@ fun SourcesScreen() {
         }
     }
 
+    val ticked = catalogs.filter { it.key in chosen }
+    /** The one catalog browsed, when exactly one is ticked. */
+    val picked = ticked.singleOrNull()
+    /** Ticked catalogs without a `search` extra can only be browsed, so a search skips them. */
+    val skipped = ticked.filter { !it.catalog.searchable }
+    val unsearchable = ticked.isNotEmpty() && skipped.size == ticked.size
+
     fun search() {
         val term = query.trim()
-        if (term.isEmpty()) return
-        picked = null
+        if (term.isEmpty() || unsearchable) return
+        val targets = ticked.filter { it.catalog.searchable }
         searching = true
         scope.launch {
-            try { groups = deps.client.searchAll(plugins, term) } finally { searching = false }
+            try {
+                groups = if (targets.isEmpty()) deps.client.searchAll(plugins, term)
+                else targets.map { entry ->
+                    async {
+                        deps.client.searchCatalog(entry.plugin, entry.catalog, term)
+                            .let { SourceGroup(entry.plugin, it.catalog, it.results, it.error) }
+                    }
+                }.awaitAll()
+            } finally {
+                searching = false
+            }
         }
     }
 
     fun browse(entry: CatalogEntry) {
-        picked = entry
-        picking = false
-        groups = null
-        results = emptyList()
+        val generation = listing
         skip = 0
         browsing = true
         scope.launch {
             try {
                 val page = deps.client.browseCatalog(entry.plugin, entry.catalog)
+                if (generation != listing) return@launch
                 results = page
                 // Only a catalog that says it pages can be asked for more, and only after a full page.
                 skip = if (entry.catalog.pageable && page.size >= PAGE) page.size else null
@@ -205,13 +240,29 @@ fun SourcesScreen() {
         }
     }
 
+    fun choose(keys: List<String>) {
+        // A catalog since removed, or its addon disabled, drops out here.
+        val kept = keys.filter { key -> catalogs.any { it.key == key } }
+        chosen = kept
+        groups = null
+        results = emptyList()
+        listing++
+        deps.persistScope.launch { deps.data.setSourceScope(kept) }
+        catalogs.firstOrNull { it.key == kept.singleOrNull() }?.let(::browse)
+    }
+
+    // The remembered scope is listed as soon as its catalog is known.
+    LaunchedEffect(catalogs) { picked?.let(::browse) }
+
     fun more() {
         val entry = picked ?: return
         val from = skip ?: return
+        val generation = listing
         browsing = true
         scope.launch {
             try {
                 val page = deps.client.browseCatalog(entry.plugin, entry.catalog, from)
+                if (generation != listing) return@launch
                 val seen = results.map { it.id }.toSet()
                 val fresh = page.filter { it.id !in seen }
                 results = results + fresh
@@ -228,7 +279,7 @@ fun SourcesScreen() {
 
     val shownGroups: List<SourceGroup> = when {
         groups != null -> groups.orEmpty().filter { it.results.isNotEmpty() || it.error.isNotEmpty() }
-        picked != null -> listOf(SourceGroup(picked!!.plugin, picked!!.catalog, results, ""))
+        picked != null -> listOf(SourceGroup(picked.plugin, picked.catalog, results, ""))
         else -> emptyList()
     }
 
@@ -245,17 +296,33 @@ fun SourcesScreen() {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Field("Search", query, { query = it }, placeholder = "Search every enabled source",
-                        keyboard = KeyboardOptions(imeAction = ImeAction.Search), onSubmit = ::search)
+                    Field(
+                        "Search", query,
+                        {
+                            query = it
+                            // Clearing the box goes back to the picked catalog's listing.
+                            if (it.isEmpty()) groups = null
+                        },
+                        placeholder = "godzilla",
+                        help = scopeHelp(ticked, skipped, unsearchable),
+                        keyboard = KeyboardOptions(imeAction = ImeAction.Search), onSubmit = ::search,
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GhostButton("Search", ::search, enabled = query.isNotBlank(), icon = Icons.Search)
-                        if (catalogs.isNotEmpty()) GhostButton(picked?.let { "${it.plugin.name} · ${it.catalog.name}" } ?: "Browse a catalog", { picking = true }, icon = Icons.Layers)
+                        GhostButton("Search", ::search, enabled = query.isNotBlank() && !unsearchable, icon = Icons.Search)
+                        if (catalogs.isNotEmpty()) GhostButton(scopeLabel(ticked), { picking = true }, icon = Icons.Layers)
                     }
                 }
             }
             if (searching || (browsing && results.isEmpty())) item { Text("Searching…", color = Palette.inkFaint, fontSize = 14.sp) }
             else if (groups != null && shownGroups.isEmpty()) item { Text("Nothing found.", color = Palette.inkFaint, fontSize = 14.sp) }
-            else if (groups == null && picked == null) item { Text("Search your sources, or pick a catalog to browse.", color = Palette.inkFaint, fontSize = 14.sp) }
+            else if (groups == null && picked == null) {
+                item {
+                    Text(
+                        if (ticked.size > 1) "Search these catalogs, or tick just one to browse it." else "Search every source, or tick a catalog to browse it.",
+                        color = Palette.inkFaint, fontSize = 14.sp,
+                    )
+                }
+            }
 
             shownGroups.forEach { group ->
                 item(key = "h:${group.plugin.id}:${group.catalog?.type}:${group.catalog?.id}") {
@@ -282,16 +349,22 @@ fun SourcesScreen() {
     }
 
     if (picking) {
-        Sheet("Browse a catalog", { picking = false }) {
-            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Sheet("Catalogs to search", { picking = false }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Help("One ticked is browsed; none searches every catalog.", Modifier.weight(1f))
+                LinkButton("Clear", { choose(emptyList()) })
+            }
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                 catalogs.forEach { entry ->
-                    Text(
+                    CheckRow(
                         "${entry.plugin.name} · ${entry.catalog.name}",
-                        color = if (entry.key == picked?.key) Palette.primary else Palette.ink,
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius)).focusRing().clickable { browse(entry) }.padding(12.dp),
+                        checked = entry.key in chosen,
+                        onChange = { on -> choose(if (on) chosen + entry.key else chosen - entry.key) },
+                        note = if (entry.catalog.searchable) null else "browse only",
                     )
                 }
             }
+            PrimaryButton("Done", { picking = false }, Modifier.fillMaxWidth())
         }
     }
 
