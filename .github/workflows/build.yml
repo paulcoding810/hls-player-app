@@ -15,13 +15,30 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
       - name: Shared tests and the debug APK
-        run: ./gradlew :shared:jvmTest :composeApp:assembleDebug :composeApp:desktopJar
+        run: ./gradlew :shared:jvmTest :composeApp:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: hls-player-debug
           path: composeApp/build/outputs/apk/debug/*.apk
 
-  ios:
+  desktop:
+    # The JVM app: compiled and packaged on each OS, since jpackage only builds for the one it runs on.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Shared tests and the desktop app
+        run: ./gradlew :shared:jvmTest :composeApp:packageDistributionForCurrentOS
+
+
     # Nothing ships on iOS yet, but the shared code and the UI must keep compiling for it.
     runs-on: macos-latest
     steps:

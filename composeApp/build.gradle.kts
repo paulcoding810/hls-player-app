@@ -1,6 +1,13 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+val appVersion = providers.gradleProperty("appVersion").get()
+require(Regex("""[1-9]\d*\.\d+\.\d+""").matches(appVersion)) { "appVersion must be MAJOR.MINOR.PATCH with MAJOR > 0, got $appVersion" }
+val (major, minor, patch) = appVersion.split('.').map(String::toInt)
+
+/** Release signing from the environment (the release workflow's secrets); without it, the debug key. */
+val releaseKeystore = System.getenv("ANDROID_KEYSTORE")?.let(::file)?.takeIf { it.exists() }
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -64,14 +71,27 @@ android {
         applicationId = "com.paulcoding.hlsplayer"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = major * 10_000 + minor * 100 + patch
+        versionName = appVersion
+    }
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
     }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,io.netty.versions.properties}" }
     }
     buildTypes {
-        getByName("release") { isMinifyEnabled = false }
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -86,10 +106,11 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "com.paulcoding.hlsplayer.desktop.MainKt"
+        jvmArgs += "-Dapp.version=$appVersion"
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "HLS Player"
-            packageVersion = "1.0.0"
+            packageVersion = appVersion
             macOS { bundleID = "com.paulcoding.hlsplayer" }
         }
     }

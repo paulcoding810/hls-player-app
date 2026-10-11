@@ -39,7 +39,7 @@ import java.awt.Frame
 import java.net.URI
 import java.net.URLDecoder
 
-private const val VERSION = "1.0.0"
+private val VERSION = System.getProperty("app.version") ?: "dev"
 
 /** Where each OS keeps an app's own files; `HLS_DATA_DIR` points a test run elsewhere. */
 private fun dataDir(): String {

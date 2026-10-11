@@ -128,6 +128,36 @@ points a test run elsewhere.
 
 JDK 17 and the Android SDK (API 36) are needed; Xcode for the iOS tasks.
 
+## CI and releases
+
+`build.yml` runs on every push: the shared suite and the debug APK, the desktop app compiled and
+packaged on Linux, macOS and Windows, and the shared suite on the iOS simulator.
+
+`release.yml` runs on a `v*` tag and publishes a GitHub release with the APK, the `.dmg`, the
+`.msi` and the `.deb`, each built on its own OS since jpackage only packages for the one it runs on:
+
+```shell
+git tag v1.2.0 && git push origin v1.2.0
+```
+
+The tag is the version: it is passed as `-PappVersion=1.2.0`, which sets the APK's `versionName`
+(and `versionCode` 10200), the installers' version and the version shown at the foot of Settings. It must be
+`MAJOR.MINOR.PATCH` with `MAJOR` above 0, which macOS packaging requires. `appVersion` in
+`gradle.properties` is what a local build uses.
+
+The APK is signed with the release key when these repository secrets are set, and with the debug
+key otherwise — installable, but not upgradable to a properly signed build later:
+
+| Secret | Value |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | `base64 -i release.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore's password |
+| `ANDROID_KEY_ALIAS` | the key's alias |
+| `ANDROID_KEY_PASSWORD` | the key's password |
+
+The desktop installers are unsigned, so macOS asks to confirm the first launch (right-click, Open)
+and Windows SmartScreen warns once. They need VLC installed to play.
+
 `shared/src/commonTest/kotlin/.../ExtensionFixture.kt` is a backup written by the extension's own
 `buildBackup`, not typed out — it is what the format tests import. Regenerate it the same way if
 the extension's format changes.
