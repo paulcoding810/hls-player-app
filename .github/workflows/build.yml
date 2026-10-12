@@ -38,7 +38,7 @@ jobs:
       - name: Shared tests and the desktop app
         run: ./gradlew :shared:jvmTest :composeApp:packageDistributionForCurrentOS
 
-
+  ios:
     # Nothing ships on iOS yet, but the shared code and the UI must keep compiling for it.
     runs-on: macos-latest
     steps:
