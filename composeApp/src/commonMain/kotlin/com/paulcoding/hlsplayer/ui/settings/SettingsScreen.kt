@@ -97,6 +97,10 @@ fun SettingsScreen() {
                 Field("Skip outro (s)", outro, { outro = it.filter(Char::isDigit); update { s -> s.copy(skipTrailing = outro.toIntOrNull() ?: 0) } }, Modifier.weight(1f),
                     placeholder = "0", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
             }
+            var introLength by remember { mutableStateOf(settings.introLength.takeIf { it > 0 }?.toString().orEmpty()) }
+            Field("Intro length (s)", introLength, { introLength = it.filter(Char::isDigit); update { s -> s.copy(introLength = introLength.toIntOrNull() ?: 0) } },
+                placeholder = "0", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number),
+                help = "For intros that start at a different point in each episode: Skip intro jumps this far ahead during the first 10 minutes. 0 turns it off.")
             SwitchRow("Skip automatically", settings.autoSkip, { on -> update { it.copy(autoSkip = on) } },
                 help = "Off shows a Skip button instead. An outro still counts down so it can be declined.")
             SwitchRow("Autoplay", settings.autoplay, { on -> update { it.copy(autoplay = on) } })

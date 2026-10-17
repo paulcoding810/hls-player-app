@@ -162,6 +162,8 @@ fun PlayerScreen(target: PlayTarget) {
                 Key.MediaRewind -> { seekBy(-10.0); true }
                 Key.MediaNext -> { controller.next(); true }
                 Key.MediaPrevious -> { controller.previous(); true }
+                // A keyboard's S takes whichever skip is showing, as in the extension.
+                Key.S -> controller.skipOffered()
                 else -> false
             }
         },
@@ -211,6 +213,8 @@ fun PlayerScreen(target: PlayTarget) {
                 if (state.countdown == null && skipAction != null) {
                     GhostButton(if (skipAction == SkipWindow.Intro) "Skip intro" else "Skip outro",
                         { if (skipAction == SkipWindow.Intro) controller.skipIntro() else controller.skipOutro() }, icon = Icons.Next)
+                } else if (state.countdown == null && state.jumpable) {
+                    GhostButton("Skip intro", controller::jumpIntro, icon = Icons.Next)
                 }
             }
 

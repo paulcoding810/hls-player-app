@@ -34,6 +34,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -199,6 +200,24 @@ class PlayerControllerTest {
         assertNull(rig.controller.state.value.countdown)
     }
 
+    @Test fun offersTheIntroJumpOncePerEpisode() = runTest {
+        val rig = Rig(this)
+        rig.fixture.data.updateSettings { it.copy(introLength = 90) }
+        val movieId = rig.show()
+        rig.controller.open(PlayTarget.Episode(movieId, null))
+        advanceUntilIdle()
+        rig.engine.at(120.0); runCurrent()
+        assertTrue(rig.controller.state.value.jumpable)
+
+        assertTrue(rig.controller.skipOffered(), "S takes the jump")
+        assertEquals(210.0, rig.engine.seeks.last())
+        assertFalse(rig.controller.state.value.jumpable)
+
+        rig.engine.at(130.0); runCurrent()
+        assertFalse(rig.controller.state.value.jumpable, "not offered again after seeking back")
+        assertFalse(rig.controller.skipOffered())
+    }
+
     @Test fun tellsAnEarlyEndFromARealOne() = runTest {
         val rig = Rig(this)
         val movieId = rig.show()
@@ -260,6 +279,19 @@ class PlayerControllerTest {
         assertEquals("eng", state.subtitles.first { it.id == state.primarySubtitle }.lang)
         assertEquals("e1.en.srt", state.subtitles.first { it.id == state.primarySubtitle }.cues.single().text)
         assertTrue(rig.subtitleReferers.all { it == "https://b.test/" }, "fetched with the stream's own Referer")
+    }
+
+    @Test fun prefersTheMoviesOwnSubtitleLanguage() = runTest {
+        val rig = Rig(this)
+        rig.fixture.data.updateSettings { it.copy(subtitlesOn = true, subtitleLang = "en") }
+        val movieId = rig.show()
+        rig.fixture.data.updateMovie(movieId) { it.copy(subtitleLang = "vi") }
+        rig.controller.open(PlayTarget.Episode(movieId, null))
+        advanceUntilIdle()
+        rig.controller.chooseStream(rig.controller.state.value.streams[1]); advanceUntilIdle()
+
+        val state = rig.controller.state.value
+        assertEquals("vie", state.subtitles.first { it.id == state.primarySubtitle }.lang)
     }
 
     @Test fun keepsAMovieSubtitleAlongsideTheStreams() = runTest {

@@ -57,6 +57,8 @@ data class PlayerUiState(
     val resume: Position? = null,
     /** Which skip button the position calls for, when auto skip is off. */
     val skip: SkipWindow? = null,
+    /** The intro jump is on offer: an intro length, the opening stretch, not yet used this episode. */
+    val jumpable: Boolean = false,
     /** Seconds before the outro advances, or null. */
     val countdown: Int? = null,
     val subtitles: List<SubtitleTrack> = emptyList(),
@@ -107,6 +109,7 @@ class PlayerController(
     private var key = ""
     private var savedAt = 0.0
     private var skipped = false
+    private var jumped = false
     private var preloaded = false
     private var chosenTrack = false
     /** Set while the resume prompt owns the starting position. */
@@ -181,6 +184,7 @@ class PlayerController(
         key = source.key
         savedAt = 0.0
         skipped = false
+        jumped = false
         preloaded = false
         chosenTrack = false
         holding = false
@@ -285,6 +289,28 @@ class PlayerController(
 
     fun skipOutro() = next()
 
+    /** Jumps the intro length ahead of the position, once per episode. */
+    fun jumpIntro() {
+        if (jumped) return
+        val state = engine.state.value
+        val target = introJumpTarget(state.position, longest.update(state.duration), config.introLength) ?: return
+        jumped = true
+        _state.update { it.copy(jumpable = false) }
+        engine.seekTo(target)
+    }
+
+    /** Whichever skip is on offer — the window's button, else the intro jump; false when none is. */
+    fun skipOffered(): Boolean {
+        val skip = _state.value.skip
+        when {
+            skip == SkipWindow.Intro -> skipIntro()
+            skip == SkipWindow.Outro && _state.value.hasNext -> skipOutro()
+            _state.value.jumpable -> jumpIntro()
+            else -> return false
+        }
+        return true
+    }
+
     /** Declines the pending outro jump; the window is not offered again this play. */
     fun cancelCountdown() {
         countdownJob?.cancel()
@@ -357,6 +383,8 @@ class PlayerController(
 
         val config = config
         val window = skipAt(time, duration, config.skipLeading, config.skipTrailing)
+        val jumpable = !jumped && introJumpTarget(time, duration, config.introLength) != null
+        if (jumpable != _state.value.jumpable) _state.update { it.copy(jumpable = jumpable) }
         if (!preloaded && preloadDue(time, duration, config.skipTrailing, PRELOAD_LEAD)) {
             preloaded = true
             preloadNext()
@@ -438,7 +466,7 @@ class PlayerController(
         val settings = data.settings.value
         if (chosenTrack || !settings.subtitlesOn || tracks.isEmpty()) return
         chosenTrack = true
-        val wanted = settings.subtitleLang
+        val wanted = config.subtitleLang
         val pick = tracks.firstOrNull { wanted.isNotEmpty() && it.lang.lowercase().startsWith(wanted) } ?: tracks.first()
         _state.update { it.copy(primarySubtitle = pick.id) }
     }

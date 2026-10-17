@@ -29,6 +29,19 @@ fun skipAt(time: Double, duration: Double, skipLeading: Int, skipTrailing: Int):
     return null
 }
 
+/** How far into an episode the intro jump is offered, for intros that start at a different point each time. */
+const val INTRO_JUMP_WINDOW = 600.0
+
+/**
+ * Where the intro jump lands from [time], or null when it is not offered: no
+ * intro length, past the opening stretch, no real end to stay short of.
+ */
+fun introJumpTarget(time: Double, duration: Double, introLength: Int, window: Double = INTRO_JUMP_WINDOW): Double? {
+    if (introLength <= 0 || !duration.isFinite() || duration <= 0 || time >= window) return null
+    val target = time + introLength
+    return target.takeIf { it < duration }
+}
+
 /**
  * The longest duration a source has reported. A stream cut short ends its media
  * at whatever was buffered, which shrinks the reported duration and would drag

@@ -82,7 +82,7 @@ class BackupTest {
         val full = Movie(
             id = "m1", title = "Full", poster = "https://img.test/p.jpg", referer = "https://site.test/",
             adPattern = "^/ads/", source = SourceRef("p1", "tt1", "series"), watchedAt = 7, skipLeading = 30,
-            skipTrailing = 60, autoSkip = false, lastEpisodeId = "e2",
+            skipTrailing = 60, introLength = 90, subtitleLang = "vi", autoSkip = false, lastEpisodeId = "e2",
             episodes = listOf(
                 Episode("e1", "One", "https://x.test/1.m3u8", subtitles = listOf(Subtitle("English", "https://x.test/en.vtt", "en"))),
                 Episode("e2", "Two", stream = StreamRef("p1", "series", "tt1:1:2")),

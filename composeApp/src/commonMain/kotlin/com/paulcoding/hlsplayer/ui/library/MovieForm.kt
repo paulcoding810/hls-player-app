@@ -66,6 +66,8 @@ fun MovieForm(movie: Movie?, defaults: Settings, onSave: (MovieDraft, keepEpisod
     var adPattern by remember { mutableStateOf(movie?.adPattern.orEmpty()) }
     var skipLeading by remember { mutableStateOf(movie?.skipLeading?.toString().orEmpty()) }
     var skipTrailing by remember { mutableStateOf(movie?.skipTrailing?.toString().orEmpty()) }
+    var introLength by remember { mutableStateOf(movie?.introLength?.toString().orEmpty()) }
+    var subtitleLang by remember { mutableStateOf(movie?.subtitleLang.orEmpty()) }
     var autoSkip by remember { mutableStateOf(movie?.autoSkip) }
     var json by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf("") }
@@ -77,6 +79,8 @@ fun MovieForm(movie: Movie?, defaults: Settings, onSave: (MovieDraft, keepEpisod
         adPattern = adPattern.trim(),
         skipLeading = skipLeading.trim().toIntOrNull()?.coerceAtLeast(0),
         skipTrailing = skipTrailing.trim().toIntOrNull()?.coerceAtLeast(0),
+        introLength = introLength.trim().toIntOrNull()?.coerceAtLeast(0),
+        subtitleLang = subtitleLang.trim().lowercase(),
         autoSkip = autoSkip,
         episodes = episodes,
     )
@@ -101,6 +105,7 @@ fun MovieForm(movie: Movie?, defaults: Settings, onSave: (MovieDraft, keepEpisod
             val draft = formDraft(episodes)
             json = if (movie == null && title.isBlank()) "" else movieToJson(
                 draft.title, draft.poster, draft.referer, draft.adPattern, draft.skipLeading, draft.skipTrailing, draft.autoSkip, draft.episodes,
+                draft.introLength, draft.subtitleLang,
             )
         } else if (next == "form" && json != null) {
             val text = json.orEmpty()
@@ -111,6 +116,8 @@ fun MovieForm(movie: Movie?, defaults: Settings, onSave: (MovieDraft, keepEpisod
                 if (parsed.episodes.any { it.src == null }) throw JsonInputException("Episodes from an addon have no URL to edit — save them from JSON.")
                 title = parsed.title; poster = parsed.poster; referer = parsed.referer; adPattern = parsed.adPattern
                 skipLeading = parsed.skipLeading?.toString().orEmpty(); skipTrailing = parsed.skipTrailing?.toString().orEmpty()
+                introLength = parsed.introLength?.toString().orEmpty()
+                subtitleLang = parsed.subtitleLang
                 autoSkip = parsed.autoSkip
                 episodesText = episodesToText(parsed.episodes)
                 json = null
@@ -151,6 +158,11 @@ fun MovieForm(movie: Movie?, defaults: Settings, onSave: (MovieDraft, keepEpisod
                         placeholder = defaults.skipTrailing.toString(), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
                 Help("Blank inherits the global setting; 0 turns it off for this movie.")
+                Field("Intro length (s)", introLength, { introLength = it.filter(Char::isDigit) },
+                    placeholder = defaults.introLength.toString(), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    help = "For an intro that starts at a different point in each episode: Skip intro jumps this far ahead during the first 10 minutes.")
+                Field("Subtitle language", subtitleLang, { subtitleLang = it }, placeholder = defaults.subtitleLang.ifEmpty { "en" },
+                    help = "The track turned on first, matched on the start of its language, so vi finds vi-VN. Blank uses the global setting.")
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     SectionLabel("Auto skip")
                     Choices(listOf(null to "Default (${if (defaults.autoSkip) "on" else "off"})", true to "On", false to "Off"), autoSkip, { autoSkip = it })

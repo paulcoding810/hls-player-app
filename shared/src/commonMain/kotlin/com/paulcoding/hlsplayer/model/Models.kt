@@ -35,11 +35,15 @@ data class Movie(
     val poster: String = "",
     val referer: String = "",
     val adPattern: String = "",
+    /** The subtitle language this movie prefers, matched like the global one; "" inherits it. */
+    val subtitleLang: String = "",
     val source: SourceRef? = null,
     /** When it was marked finished; playing it again clears this. */
     val watchedAt: Long? = null,
     val skipLeading: Int? = null,
     val skipTrailing: Int? = null,
+    /** Seconds the Skip intro jump moves forward, for an intro that does not start at 0. */
+    val introLength: Int? = null,
     val autoSkip: Boolean? = null,
     val lastEpisodeId: String? = null,
     val episodes: List<Episode> = emptyList(),

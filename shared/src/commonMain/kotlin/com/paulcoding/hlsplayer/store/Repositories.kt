@@ -116,6 +116,8 @@ class AppData(val store: JsonStore, private val now: () -> Long = ::nowMillis, p
         skipLeading: Int? = null,
         skipTrailing: Int? = null,
         autoSkip: Boolean? = null,
+        introLength: Int? = null,
+        subtitleLang: String = "",
     ): Movie = changeLibrary { library ->
         val movie = Movie(
             id = id(),
@@ -126,6 +128,8 @@ class AppData(val store: JsonStore, private val now: () -> Long = ::nowMillis, p
             source = source,
             skipLeading = skipLeading,
             skipTrailing = skipTrailing,
+            introLength = introLength,
+            subtitleLang = subtitleLang.trim().lowercase(),
             autoSkip = autoSkip,
             episodes = buildEpisodes(episodes, id = id),
             addedAt = now(),

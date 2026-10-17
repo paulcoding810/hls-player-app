@@ -169,11 +169,11 @@ fun LibraryScreen() {
         MovieForm(movie, settings, onDismiss = { editing = null }, onSave = { draft, keepEpisodes ->
             scope.launch {
                 if (movie == null) {
-                    deps.data.addMovie(draft.title, draft.episodes, draft.poster, draft.referer, draft.adPattern, null, draft.skipLeading, draft.skipTrailing, draft.autoSkip)
+                    deps.data.addMovie(draft.title, draft.episodes, draft.poster, draft.referer, draft.adPattern, null, draft.skipLeading, draft.skipTrailing, draft.autoSkip, draft.introLength, draft.subtitleLang)
                 } else {
                     deps.data.updateMovie(movie.id) {
                         it.copy(title = draft.title, poster = draft.poster, referer = draft.referer, adPattern = draft.adPattern,
-                            skipLeading = draft.skipLeading, skipTrailing = draft.skipTrailing, autoSkip = draft.autoSkip)
+                            skipLeading = draft.skipLeading, skipTrailing = draft.skipTrailing, introLength = draft.introLength, subtitleLang = draft.subtitleLang, autoSkip = draft.autoSkip)
                     }
                     // An addon movie's form leaves its episodes alone: only the addon sets them.
                     if (!keepEpisodes) deps.data.setEpisodes(movie.id, draft.episodes)

@@ -5,6 +5,8 @@ import com.paulcoding.hlsplayer.playback.Preloader
 import com.paulcoding.hlsplayer.playback.SkipWindow
 import com.paulcoding.hlsplayer.playback.endedEarly
 import com.paulcoding.hlsplayer.playback.preloadDue
+import com.paulcoding.hlsplayer.playback.INTRO_JUMP_WINDOW
+import com.paulcoding.hlsplayer.playback.introJumpTarget
 import com.paulcoding.hlsplayer.playback.skipAt
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -67,6 +69,14 @@ class PlaybackTest {
         assertEquals(SkipWindow.Outro, skipAt(940.0, 1000.0, 30, 60))
         assertNull(skipAt(10.0, Double.POSITIVE_INFINITY, 30, 60), "a live stream has no windows")
         assertNull(skipAt(10.0, 20.0, 30, 0), "an intro longer than the episode is ignored")
+    }
+
+    @Test fun jumpsTheIntroLengthFromWhereverPlaybackIs() {
+        assertEquals(185.0, introJumpTarget(95.0, 2700.0, 90))
+        assertNull(introJumpTarget(INTRO_JUMP_WINDOW, 2700.0, 90), "past the opening stretch")
+        assertNull(introJumpTarget(30.0, 2700.0, 0), "off without a length")
+        assertNull(introJumpTarget(30.0, Double.POSITIVE_INFINITY, 90), "a live stream has no end to stay short of")
+        assertNull(introJumpTarget(30.0, 100.0, 90), "never past the end")
     }
 
     @Test fun keepsTheLongestDuration() {

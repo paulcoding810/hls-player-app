@@ -59,6 +59,8 @@ data class Settings(
     val skipLeading: Int = 0,
     /** Seconds before the end at which the next item starts (credits). */
     val skipTrailing: Int = 0,
+    /** Seconds the Skip intro jump moves forward, for intros that start later; 0 offers none. */
+    val introLength: Int = 0,
 )
 
 val DEFAULT_SETTINGS = Settings()
@@ -99,6 +101,7 @@ fun readSettings(stored: JsonObject?): Settings {
         autoSkip = bool("autoSkip", d.autoSkip),
         skipLeading = toSeconds(number("skipLeading", 0.0)),
         skipTrailing = toSeconds(number("skipTrailing", 0.0)),
+        introLength = toSeconds(number("introLength", 0.0)),
     )
 }
 

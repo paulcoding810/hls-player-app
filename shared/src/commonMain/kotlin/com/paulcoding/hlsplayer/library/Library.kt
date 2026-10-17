@@ -173,8 +173,10 @@ fun sortMovies(movies: List<Movie>, order: SortOrder = SortOrder.Watched, positi
 data class PlaybackConfig(
     val referer: String,
     val adPattern: String,
+    val subtitleLang: String,
     val skipLeading: Int,
     val skipTrailing: Int,
+    val introLength: Int,
     val autoSkip: Boolean,
     val playbackRate: Double,
     val autoplay: Boolean,
@@ -185,8 +187,10 @@ data class PlaybackConfig(
 fun resolveConfig(movie: Movie?, settings: Settings) = PlaybackConfig(
     referer = movie?.referer?.ifEmpty { null } ?: settings.referer,
     adPattern = movie?.adPattern?.ifEmpty { null } ?: settings.adPattern,
+    subtitleLang = movie?.subtitleLang?.ifEmpty { null } ?: settings.subtitleLang,
     skipLeading = movie?.skipLeading ?: settings.skipLeading,
     skipTrailing = movie?.skipTrailing ?: settings.skipTrailing,
+    introLength = movie?.introLength ?: settings.introLength,
     autoSkip = movie?.autoSkip ?: settings.autoSkip,
     playbackRate = settings.playbackRate,
     autoplay = settings.autoplay,
@@ -200,8 +204,10 @@ data class MovieDraft(
     val poster: String = "",
     val referer: String = "",
     val adPattern: String = "",
+    val subtitleLang: String = "",
     val skipLeading: Int? = null,
     val skipTrailing: Int? = null,
+    val introLength: Int? = null,
     val autoSkip: Boolean? = null,
     val episodes: List<EpisodeDraft> = emptyList(),
 )
@@ -264,8 +270,10 @@ fun parseMovieJson(text: String): MovieDraft {
         poster = obj.field("poster").string().trim(),
         referer = normalizeReferer(obj.field("referer").string()),
         adPattern = adPattern,
+        subtitleLang = obj.field("subtitleLang").string().trim().lowercase(),
         skipLeading = optionalNumber(obj.field("skipLeading"), "skipLeading"),
         skipTrailing = optionalNumber(obj.field("skipTrailing"), "skipTrailing"),
+        introLength = optionalNumber(obj.field("introLength"), "introLength"),
         autoSkip = autoSkip.booleanValue(),
         episodes = episodes,
     )
@@ -284,14 +292,18 @@ fun movieToJson(
     skipTrailing: Int? = null,
     autoSkip: Boolean? = null,
     episodes: List<EpisodeDraft>,
+    introLength: Int? = null,
+    subtitleLang: String = "",
 ): String {
     val json = buildJsonObject {
         put("title", title)
         if (poster.isNotEmpty()) put("poster", poster)
         if (referer.isNotEmpty()) put("referer", referer)
         if (adPattern.isNotEmpty()) put("adPattern", adPattern)
+        if (subtitleLang.isNotEmpty()) put("subtitleLang", subtitleLang)
         skipLeading?.let { put("skipLeading", it) }
         skipTrailing?.let { put("skipTrailing", it) }
+        introLength?.let { put("introLength", it) }
         autoSkip?.let { put("autoSkip", it) }
         putJsonArray("episodes") {
             episodes.forEach { episode ->
@@ -318,4 +330,6 @@ fun movieToJson(
 fun Movie.toJsonText() = movieToJson(
     title, poster, referer, adPattern, skipLeading, skipTrailing, autoSkip,
     episodes.map { EpisodeDraft(it.title, it.src, it.stream, it.subtitles.orEmpty()) },
+    introLength,
+    subtitleLang,
 )
